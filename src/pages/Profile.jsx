@@ -62,7 +62,7 @@ export default function Profile() {
     setSaving(true)
     setMsg('')
     const { error } = await supabase.from('profiles')
-      .update({ full_name: name, updated_at: new Date().toISOString() })
+      .update({ full_name: name })
       .eq('user_id', user.id)
     setSaving(false)
     setMsg(error ? '✗ ' + error.message : '✓ Profile saved!')
