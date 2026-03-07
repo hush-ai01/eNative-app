@@ -38,11 +38,11 @@ export default function Profile() {
       const ext = file.name.split('.').pop().toLowerCase()
       const filePath = `${user.id}/avatar.${ext}`
       const { error: upErr } = await supabase.storage
-        .from('avatars')
+        .from('Avatars')
         .upload(filePath, file, { upsert: true, contentType: file.type })
       if (upErr) throw upErr
       const { data: urlData } = supabase.storage
-        .from('avatars')
+        .from('Avatars')
         .getPublicUrl(filePath)
       const publicUrl = urlData.publicUrl + '?t=' + Date.now()
       const { error: dbErr } = await supabase.from('profiles')
