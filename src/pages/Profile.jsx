@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useAuth } from "../hooks/useAuth";
@@ -14,7 +14,14 @@ const css = `
   .page-title { font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 24px; margin-bottom: 24px; }
   .profile-hero { background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 32px; display: flex; align-items: center; gap: 24px; margin-bottom: 16px; position: relative; overflow: hidden; }
   .profile-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(192,132,252,0.06) 0%, transparent 60%); pointer-events: none; }
-  .profile-av { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #2d1060, #080318); border: 2px solid rgba(192,132,252,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 28px; color: var(--accent); flex-shrink: 0; box-shadow: 0 0 28px rgba(192,132,252,0.15); }
+  .av-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
+  .profile-av { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #2d1060, #080318); border: 2px solid rgba(192,132,252,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 28px; color: var(--accent); box-shadow: 0 0 28px rgba(192,132,252,0.15); overflow: hidden; }
+  .profile-av img { width: 100%; height: 100%; object-fit: cover; }
+  .av-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; font-size: 20px; }
+  .av-wrap:hover .av-overlay { opacity: 1; }
+  .av-uploading { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
+  .av-spinner { width: 22px; height: 22px; border: 2px solid rgba(192,132,252,0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .profile-info { flex: 1; }
   .profile-name { font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.3px; margin-bottom: 6px; }
   .profile-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -25,6 +32,7 @@ const css = `
   .ptag { font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.1em; border: 1px solid rgba(110,231,183,0.2); border-radius: 20px; padding: 3px 10px; color: var(--accent3); background: rgba(110,231,183,0.05); }
   .edit-btn { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 1px; padding: 9px 18px; border-radius: 10px; border: 1px solid rgba(192,132,252,0.22); background: rgba(192,132,252,0.07); color: var(--accent); cursor: pointer; transition: all 0.18s; white-space: nowrap; }
   .edit-btn:hover { background: rgba(192,132,252,0.14); }
+  .av-hint { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--dim); letter-spacing: 0.1em; margin-top: 6px; text-align: center; }
   .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
   .stat { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 18px 20px; position: relative; overflow: hidden; }
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--c); opacity: 0.7; }
@@ -42,6 +50,7 @@ const css = `
   .save-btn { width: 100%; height: 44px; border-radius: 12px; border: none; background: linear-gradient(135deg, #c084fc, #9333ea); color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1.5px; cursor: pointer; margin-top: 6px; transition: all 0.2s; }
   .save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(192,132,252,0.3); }
   .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .saved-msg { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--accent3); letter-spacing: 0.1em; margin-top: 8px; }
   .badge-section { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
   .badge-display { display: flex; align-items: center; gap: 20px; }
   .badge-disc { width: 72px; height: 72px; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #2d1060, #080318); border: 1px solid rgba(192,132,252,0.25); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; box-shadow: 0 0 24px rgba(192,132,252,0.12); animation: float 5s ease-in-out infinite; }
@@ -52,9 +61,7 @@ const css = `
   .perk { font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.1em; border: 1px solid rgba(192,132,252,0.18); border-radius: 20px; padding: 3px 10px; color: var(--accent); background: rgba(192,132,252,0.05); }
   .invite-bar { margin-top: 16px; padding: 14px 16px; background: rgba(192,132,252,0.04); border: 1px solid rgba(192,132,252,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; }
   .invite-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--dim); letter-spacing: 0.1em; }
-  .invite-val { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 18px; color: var(--accent); }
   .invite-btn { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 1px; padding: 7px 14px; border-radius: 9px; border: 1px solid rgba(192,132,252,0.22); background: rgba(192,132,252,0.08); color: var(--accent); cursor: pointer; }
-  .saved-msg { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--accent3); letter-spacing: 0.1em; margin-top: 8px; }
 `;
 
 export default function Profile() {
@@ -63,15 +70,19 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
   const [bio, setBio] = useState("");
+  const fileRef = useRef();
 
   const displayName = name || profile?.full_name || user?.email?.split("@")[0] || "eNative User";
   const displayCountry = country || profile?.country || "Africa 🌍";
   const displayEnum = profile?.enumber || "E-????";
   const displayBadge = profile?.badge_tier || "Community";
   const initials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const photo = avatarUrl || profile?.avatar_url;
 
   const STATS = [
     { label: "eNumber", val: displayEnum, sub: `${displayBadge} tier`, c: "#c084fc" },
@@ -79,6 +90,22 @@ export default function Profile() {
     { label: "Contacts", val: "47", sub: "Verified", c: "#6ee7b7" },
     { label: "Total Calls", val: "1,284", sub: "All time", c: "#60d8fa" },
   ];
+
+  const uploadAvatar = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = data.publicUrl + "?t=" + Date.now();
+      setAvatarUrl(url);
+      await supabase.from("profiles").upsert({ user_id: user.id, avatar_url: url });
+    }
+    setUploading(false);
+  };
 
   const saveProfile = async () => {
     if (!user) return;
@@ -97,13 +124,25 @@ export default function Profile() {
   return (
     <>
       <style>{css}</style>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploadAvatar} />
       <div className="app">
         <Sidebar />
         <div className="main">
           <div className="page-title">My Profile</div>
-
           <div className="profile-hero">
-            <div className="profile-av">{initials}</div>
+            <div>
+              <div className="av-wrap" onClick={() => fileRef.current.click()}>
+                <div className="profile-av">
+                  {photo ? <img src={photo} alt="avatar" /> : initials}
+                </div>
+                {uploading ? (
+                  <div className="av-uploading"><div className="av-spinner" /></div>
+                ) : (
+                  <div className="av-overlay">📷</div>
+                )}
+              </div>
+              <div className="av-hint">TAP TO CHANGE</div>
+            </div>
             <div className="profile-info">
               <div className="profile-name">{displayName}</div>
               <div className="profile-meta">
