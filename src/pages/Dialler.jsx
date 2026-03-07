@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useVapi } from "../hooks/useVapi";
+import { useWebRTC } from "../hooks/useWebRTC";
+import IncomingCall from "../components/IncomingCall";
 import CallerVerification from '../components/CallerVerification';
 
 const css = `
@@ -90,6 +92,7 @@ export default function Dialler() {
   const [tab, setTab] = useState("keypad");
   const [dialVal, setDialVal] = useState("");
   const { callActive, callStatus, isMuted, startCall: vapiStart, endCall: vapiEnd, toggleMute } = useVapi();
+  const { incomingCall, startCall: webrtcStart, answerCall, endCall: webrtcEnd, rejectCall } = useWebRTC(user);
   const [calling, setCalling] = useState(false);
   const [callingName, setCallingName] = useState("");
   const [timer, setTimer] = useState(0);
@@ -128,7 +131,8 @@ export default function Dialler() {
 
             {tab === "keypad" && (
               <>
-                {calling ? (
+                <IncomingCall call={incomingCall} onAnswer={answerCall} onReject={rejectCall} />
+      {calling ? (
                   <div className="incall">
                     <div className="incall-av">📞</div>
                     <div className="incall-num">{callingName || dialVal}</div>
