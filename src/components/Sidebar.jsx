@@ -19,7 +19,7 @@ const NAV = [
   { icon: "👥", path: "/contacts",  label: "Contacts"  },
   { icon: "💬", path: "/messages",  label: "Messages", dot: true },
   { icon: "🏅", path: "/badge",     label: "Badge"     },
-  { icon: "⚙️", path: "/settings",  label: "Settings"  },
+  { icon: "⚙", path: "/settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
