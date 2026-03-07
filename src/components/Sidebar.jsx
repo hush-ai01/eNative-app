@@ -1,3 +1,4 @@
+import React from 'react';
 import { useNavigate, useLocation } from "react-router-dom";
 
 const css = `
@@ -25,6 +26,24 @@ const NAV = [
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [avatarUrl, setAvatarUrl] = React.useState(null);
+  const [initials, setInitials] = React.useState('?');
+
+  React.useEffect(() => {
+    const fetchAvatar = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const user = session.user;
+      setInitials((user.email || '?').slice(0, 2).toUpperCase());
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single();
+      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+    };
+    fetchAvatar();
+  }, []);
 
   return (
     <>
@@ -48,7 +67,7 @@ export default function Sidebar() {
             onClick={() => navigate("/profile")}
             title="Profile"
           >
-            TO
+            {avatarUrl ? <img src={avatarUrl} style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover"}} /> : initials}
           </div>
         </div>
       </div>
