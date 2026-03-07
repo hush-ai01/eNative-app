@@ -1,258 +1,161 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
-import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../lib/supabase";
-
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=Exo+2:wght@300;400;500;600&family=Share+Tech+Mono&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg: #050507; --surface: #08090d; --surface2: #0c0d12; --border: #111116; --border2: #181820; --accent: #c084fc; --accent2: #60d8fa; --accent3: #6ee7b7; --text: rgba(255,255,255,0.93); --mid: rgba(255,255,255,0.52); --dim: rgba(255,255,255,0.26); --red: #ff5f7e; }
-  body { background: var(--bg); color: var(--text); font-family: 'Exo 2', sans-serif; margin: 0; }
-  .app { display: flex; min-height: 100vh; }
-  .main { margin-left: 68px; flex: 1; padding: 28px 32px; max-width: 860px; }
-  .page-title { font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 24px; margin-bottom: 24px; }
-  .profile-hero { background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 32px; display: flex; align-items: center; gap: 24px; margin-bottom: 16px; position: relative; overflow: hidden; }
-  .profile-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(192,132,252,0.06) 0%, transparent 60%); pointer-events: none; }
-  .av-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
-  .profile-av { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #2d1060, #080318); border: 2px solid rgba(192,132,252,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 28px; color: var(--accent); box-shadow: 0 0 28px rgba(192,132,252,0.15); overflow: hidden; }
-  .profile-av img { width: 100%; height: 100%; object-fit: cover; }
-  .av-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; font-size: 20px; }
-  .av-wrap:hover .av-overlay { opacity: 1; }
-  .av-uploading { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
-  .av-spinner { width: 22px; height: 22px; border: 2px solid rgba(192,132,252,0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .profile-info { flex: 1; }
-  .profile-name { font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.3px; margin-bottom: 6px; }
-  .profile-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-  .profile-enum { font-family: 'Share Tech Mono', monospace; font-size: 13px; color: var(--accent); letter-spacing: 0.1em; }
-  .profile-badge { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 0.14em; padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(192,132,252,0.22); color: var(--accent); background: rgba(192,132,252,0.08); }
-  .profile-country { font-size: 13px; color: var(--mid); }
-  .profile-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-  .ptag { font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.1em; border: 1px solid rgba(110,231,183,0.2); border-radius: 20px; padding: 3px 10px; color: var(--accent3); background: rgba(110,231,183,0.05); }
-  .edit-btn { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 1px; padding: 9px 18px; border-radius: 10px; border: 1px solid rgba(192,132,252,0.22); background: rgba(192,132,252,0.07); color: var(--accent); cursor: pointer; transition: all 0.18s; white-space: nowrap; }
-  .edit-btn:hover { background: rgba(192,132,252,0.14); }
-  .av-hint { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--dim); letter-spacing: 0.1em; margin-top: 6px; text-align: center; }
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-  .stat { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 18px 20px; position: relative; overflow: hidden; }
-  .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--c); opacity: 0.7; }
-  .stat-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 0.18em; color: var(--dim); margin-bottom: 8px; }
-  .stat-val { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 22px; color: var(--c); line-height: 1; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .stat-sub { font-size: 11px; color: var(--dim); }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; }
-  .card-title { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 18px; }
-  .field { margin-bottom: 14px; }
-  .field-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--dim); margin-bottom: 7px; }
-  .field-val { font-size: 13px; color: var(--text); background: var(--surface2); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 14px; }
-  .field-input { width: 100%; font-size: 13px; color: var(--text); background: var(--surface2); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 14px; outline: none; font-family: 'Exo 2', sans-serif; transition: border-color 0.2s; }
-  .field-input:focus { border-color: rgba(192,132,252,0.35); }
-  .save-btn { width: 100%; height: 44px; border-radius: 12px; border: none; background: linear-gradient(135deg, #c084fc, #9333ea); color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1.5px; cursor: pointer; margin-top: 6px; transition: all 0.2s; }
-  .save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(192,132,252,0.3); }
-  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .saved-msg { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--accent3); letter-spacing: 0.1em; margin-top: 8px; }
-  .badge-section { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
-  .badge-display { display: flex; align-items: center; gap: 20px; }
-  .badge-disc { width: 72px; height: 72px; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #2d1060, #080318); border: 1px solid rgba(192,132,252,0.25); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; box-shadow: 0 0 24px rgba(192,132,252,0.12); animation: float 5s ease-in-out infinite; }
-  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-  .badge-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
-  .badge-desc { font-size: 12px; color: var(--mid); line-height: 1.6; margin-bottom: 10px; }
-  .badge-perks { display: flex; gap: 6px; flex-wrap: wrap; }
-  .perk { font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.1em; border: 1px solid rgba(192,132,252,0.18); border-radius: 20px; padding: 3px 10px; color: var(--accent); background: rgba(192,132,252,0.05); }
-  .invite-bar { margin-top: 16px; padding: 14px 16px; background: rgba(192,132,252,0.04); border: 1px solid rgba(192,132,252,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; }
-  .invite-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--dim); letter-spacing: 0.1em; }
-  .invite-btn { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 1px; padding: 7px 14px; border-radius: 9px; border: 1px solid rgba(192,132,252,0.22); background: rgba(192,132,252,0.08); color: var(--accent); cursor: pointer; }
-`;
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import BadgeIcon from '../components/BadgeIcon'
 
 export default function Profile() {
-  const navigate = useNavigate();
-  const { user, profile } = useAuth();
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const [name, setName] = useState("");
-  const [country, setCountry] = useState("");
-  const [bio, setBio] = useState("");
-  const fileRef = useRef();
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [avatar, setAvatar] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [name, setName] = useState('')
+  const [msg, setMsg] = useState('')
+  const fileRef = useRef()
+  const navigate = useNavigate()
 
-  const displayName = name || profile?.full_name || user?.email?.split("@")[0] || "eNative User";
-  const displayCountry = country || profile?.country || "Africa 🌍";
-  const displayEnum = profile?.enumber || "E-????";
-  const displayBadge = profile?.badge_tier || "Community";
-  const initials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  const photo = avatarUrl || profile?.avatar_url;
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { navigate('/login'); return }
+      setUser(user)
+      supabase.from('profiles').select('*').eq('user_id', user.id).single()
+        .then(({ data }) => {
+          if (data) {
+            setProfile(data)
+            setName(data.full_name || '')
+            setAvatar(data.avatar_url || null)
+          }
+        })
+    })
+  }, [])
 
-  const STATS = [
-    { label: "eNumber", val: displayEnum, sub: `${displayBadge} tier`, c: "#c084fc" },
-    { label: "Member Since", val: user?.created_at ? new Date(user.created_at).getFullYear() : "2024", sub: "Founding year", c: "#fcd34d" },
-    { label: "Contacts", val: "47", sub: "Verified", c: "#6ee7b7" },
-    { label: "Total Calls", val: "1,284", sub: "All time", c: "#60d8fa" },
-  ];
-
-  const fetchProfile = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    if (data) {
-      setAvatarUrl(data.avatar_url || null);
-      if (data.full_name) setName(data.full_name);
-      if (data.country) setCountry(data.country);
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploading(true)
+    setMsg('')
+    try {
+      const ext = file.name.split('.').pop().toLowerCase()
+      const filePath = `${user.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+      const publicUrl = urlData.publicUrl + '?t=' + Date.now()
+      const { error: dbErr } = await supabase.from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id)
+      if (dbErr) throw dbErr
+      setAvatar(publicUrl)
+      setMsg('✓ Photo saved!')
+    } catch (err) {
+      setMsg('✗ Failed: ' + err.message)
     }
-  };
-
-  const uploadAvatar = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-    console.log("Uploading to path:", path);
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    console.log("Upload error:", uploadError);
-    if (!uploadError) {
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      const url = data.publicUrl + "?t=" + Date.now();
-      console.log("Public URL:", url);
-      setAvatarUrl(url);
-      const { error: dbError } = await supabase.from("profiles").upsert({ id: user.id, avatar_url: url });
-      console.log("DB error:", dbError);
-    }
-    setUploading(false);
-  };
+    setUploading(false)
+  }
 
   const saveProfile = async () => {
-    if (!user) return;
-    setSaving(true);
-    await supabase.from("profiles").upsert({
-      user_id: user.id,
-      full_name: name || displayName,
-      country: country || displayCountry,
-    });
-    setSaving(false);
-    setSaved(true);
-    setEditing(false);
-    setTimeout(() => setSaved(false), 3000);
-  };
+    if (!user) return
+    setSaving(true)
+    setMsg('')
+    const { error } = await supabase.from('profiles')
+      .update({ full_name: name, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+    setSaving(false)
+    setMsg(error ? '✗ ' + error.message : '✓ Profile saved!')
+  }
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    navigate('/login')
+  }
+
+  const initials = name?.substring(0,2).toUpperCase() || 'EN'
 
   return (
-    <>
-      <style>{css}</style>
-      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploadAvatar} />
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <div className="page-title">My Profile</div>
-          <div className="profile-hero">
-            <div>
-              <div className="av-wrap" onClick={() => fileRef.current.click()}>
-                <div className="profile-av">
-                  {photo ? <img src={photo} alt="avatar" /> : initials}
-                </div>
-                {uploading ? (
-                  <div className="av-uploading"><div className="av-spinner" /></div>
-                ) : (
-                  <div className="av-overlay">📷</div>
-                )}
-              </div>
-              <div className="av-hint">TAP TO CHANGE</div>
-            </div>
-            <div className="profile-info">
-              <div className="profile-name">{displayName}</div>
-              <div className="profile-meta">
-                <span className="profile-enum">{displayEnum}</span>
-                <span className="profile-badge">{displayBadge.toUpperCase()}</span>
-                <span className="profile-country">{displayCountry}</span>
-              </div>
-              <div className="profile-tags">
-                <span className="ptag">Permanent ID</span>
-                <span className="ptag">Verified</span>
-                <span className="ptag">Pan-African</span>
-              </div>
-            </div>
-            <button className="edit-btn" onClick={() => { setEditing(!editing); setName(profile?.full_name || ""); setCountry(profile?.country || ""); }}>
-              {editing ? "CANCEL" : "EDIT PROFILE"}
-            </button>
-          </div>
+    <div style={{minHeight:'100vh',background:'#050507',color:'rgba(255,255,255,0.93)',fontFamily:"'Exo 2',sans-serif",paddingBottom:'90px'}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=Exo+2:wght@300;400;500;600&family=Share+Tech+Mono&display=swap');`}</style>
 
-          <div className="stats-row">
-            {STATS.map((s, i) => (
-              <div key={i} className="stat" style={{ "--c": s.c }}>
-                <div className="stat-label">{s.label}</div>
-                <div className="stat-val">{s.val}</div>
-                <div className="stat-sub">{s.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="badge-section">
-            <div className="card-title">🏅 Badge & Identity</div>
-            <div className="badge-display">
-              <div className="badge-disc">🏅</div>
-              <div>
-                <div className="badge-name">{displayBadge} eNative</div>
-                <div className="badge-desc">Your permanent eNative identity across 54 African nations. Verified, spam-free and carrier-independent.</div>
-                <div className="badge-perks">
-                  <span className="perk">Permanent eNumber</span>
-                  <span className="perk">Verified Identity</span>
-                  <span className="perk">AI Call Quality</span>
-                </div>
-              </div>
-            </div>
-            <div className="invite-bar">
-              <div>
-                <div className="invite-label">EMAIL</div>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 12, color: "var(--accent)", marginTop: 4 }}>{user?.email}</div>
-              </div>
-              <button className="invite-btn" onClick={() => navigate("/settings")}>SETTINGS →</button>
-            </div>
-          </div>
-
-          <div className="two-col">
-            <div className="card">
-              <div className="card-title">👤 Personal Info</div>
-              {editing ? (
-                <>
-                  <div className="field">
-                    <div className="field-label">FULL NAME</div>
-                    <input className="field-input" placeholder={displayName} value={name} onChange={e => setName(e.target.value)} />
-                  </div>
-                  <div className="field">
-                    <div className="field-label">COUNTRY</div>
-                    <input className="field-input" placeholder={displayCountry} value={country} onChange={e => setCountry(e.target.value)} />
-                  </div>
-                  <div className="field">
-                    <div className="field-label">BIO</div>
-                    <input className="field-input" placeholder="Tell the network about yourself..." value={bio} onChange={e => setBio(e.target.value)} />
-                  </div>
-                  <button className="save-btn" onClick={saveProfile} disabled={saving}>
-                    {saving ? "SAVING..." : "SAVE CHANGES"}
-                  </button>
-                  {saved && <div className="saved-msg">✓ Profile saved!</div>}
-                </>
-              ) : (
-                <>
-                  <div className="field"><div className="field-label">FULL NAME</div><div className="field-val">{displayName}</div></div>
-                  <div className="field"><div className="field-label">COUNTRY</div><div className="field-val">{displayCountry}</div></div>
-                  <div className="field"><div className="field-label">EMAIL</div><div className="field-val">{user?.email || "—"}</div></div>
-                  <div className="field"><div className="field-label">ENUMBER</div><div className="field-val">{displayEnum}</div></div>
-                </>
-              )}
-            </div>
-            <div className="card">
-              <div className="card-title">🔐 Account Security</div>
-              <div className="field"><div className="field-label">ACCOUNT STATUS</div><div className="field-val" style={{ color: "var(--accent3)" }}>✓ Active</div></div>
-              <div className="field"><div className="field-label">EMAIL VERIFIED</div><div className="field-val" style={{ color: "var(--accent3)" }}>{user?.email_confirmed_at ? "✓ Verified" : "Pending"}</div></div>
-              <div className="field"><div className="field-label">LAST SIGN IN</div><div className="field-val">{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : "—"}</div></div>
-              <div className="field"><div className="field-label">USER ID</div><div className="field-val" style={{ fontSize: 10, wordBreak: "break-all" }}>{user?.id?.slice(0, 18)}...</div></div>
-            </div>
-          </div>
+      {/* Header */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #111116',background:'#08090d'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+          <div style={{width:'32px',height:'32px',borderRadius:'8px',background:'linear-gradient(135deg,#c084fc,#60d8fa)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Rajdhani,sans-serif',fontWeight:'800',fontSize:'13px',color:'#fff'}}>en</div>
+          <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'10px',letterSpacing:'0.2em',color:'rgba(255,255,255,0.3)'}}>MY PROFILE</span>
         </div>
       </div>
-    </>
-  );
+
+      <div style={{maxWidth:'420px',margin:'0 auto',padding:'24px 20px'}}>
+
+        {/* Avatar */}
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:'28px'}}>
+          <div style={{position:'relative',marginBottom:'12px'}}>
+            <div style={{width:'96px',height:'96px',borderRadius:'50%',background:'linear-gradient(135deg,#1a0a30,#0d0520)',border:'2px solid rgba(192,132,252,0.3)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 32px rgba(192,132,252,0.15)'}}>
+              {avatar
+                ? <img src={avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                : <span style={{fontFamily:'Rajdhani,sans-serif',fontWeight:'700',fontSize:'2rem',color:'#c084fc'}}>{initials}</span>
+              }
+            </div>
+            <div onClick={() => fileRef.current?.click()} style={{position:'absolute',bottom:0,right:0,width:'28px',height:'28px',borderRadius:'50%',background:'linear-gradient(135deg,#c084fc,#60d8fa)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:'14px',boxShadow:'0 2px 8px rgba(0,0,0,0.4)'}}>
+              {uploading ? '⏳' : '📷'}
+            </div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{display:'none'}}/>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            <BadgeIcon type="founder" size={14}/>
+            <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#c084fc',letterSpacing:'0.1em'}}>{profile?.enumber || 'eN·FOUNDER·001'}</span>
+          </div>
+          {msg && <div style={{marginTop:'10px',fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color: msg.startsWith('✓') ? '#6ee7b7' : '#ff5f7e',letterSpacing:'0.1em'}}>{msg}</div>}
+        </div>
+
+        {/* Name */}
+        <div style={{marginBottom:'12px'}}>
+          <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',letterSpacing:'0.2em',color:'rgba(255,255,255,0.3)',marginBottom:'8px'}}>DISPLAY NAME</div>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" style={{width:'100%',padding:'14px 16px',background:'#0c0d12',border:'1px solid #1a1a24',borderRadius:'12px',color:'rgba(255,255,255,0.93)',fontFamily:"'Exo 2',sans-serif",fontSize:'0.9rem',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+
+        {/* Email */}
+        <div style={{marginBottom:'24px'}}>
+          <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',letterSpacing:'0.2em',color:'rgba(255,255,255,0.3)',marginBottom:'8px'}}>EMAIL</div>
+          <div style={{padding:'14px 16px',background:'#08090d',border:'1px solid #111116',borderRadius:'12px',fontFamily:'Share Tech Mono,monospace',fontSize:'11px',color:'rgba(255,255,255,0.4)',letterSpacing:'0.05em'}}>{user?.email}</div>
+        </div>
+
+        {/* Badge */}
+        <div style={{background:'#08090d',border:'1px solid #111116',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
+          <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',letterSpacing:'0.2em',color:'rgba(255,255,255,0.25)',marginBottom:'14px'}}>MY BADGES</div>
+          <div style={{display:'flex',alignItems:'center',gap:'8px',background:'rgba(192,132,252,0.05)',border:'1px solid rgba(192,132,252,0.15)',borderRadius:'10px',padding:'10px 14px',width:'fit-content'}}>
+            <BadgeIcon type="founder" size={16}/>
+            <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',color:'rgba(255,255,255,0.5)',letterSpacing:'0.08em'}}>Founder eNative</span>
+          </div>
+        </div>
+
+        {/* Save */}
+        <button onClick={saveProfile} disabled={saving||uploading} style={{width:'100%',padding:'15px',background:'linear-gradient(135deg,#c084fc,#60d8fa)',border:'none',borderRadius:'12px',color:'#050507',fontFamily:'Rajdhani,sans-serif',fontWeight:'700',fontSize:'1rem',letterSpacing:'0.08em',cursor:'pointer',marginBottom:'10px',opacity:(saving||uploading)?0.6:1}}>
+          {saving ? 'SAVING...' : 'SAVE PROFILE'}
+        </button>
+
+        <button onClick={signOut} style={{width:'100%',padding:'13px',background:'transparent',border:'1px solid #1a1a24',borderRadius:'12px',color:'rgba(255,255,255,0.3)',fontFamily:'Share Tech Mono,monospace',fontSize:'10px',letterSpacing:'0.2em',cursor:'pointer'}}>
+          SIGN OUT
+        </button>
+      </div>
+
+      {/* Bottom Nav */}
+      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'#08090d',borderTop:'1px solid #111116',display:'flex',justifyContent:'space-around',padding:'12px 0 20px'}}>
+        {[
+          {icon:'⊞',label:'Home',path:'/dashboard'},
+          {icon:'📞',label:'Dialler',path:'/dialler'},
+          {icon:'👥',label:'Contacts',path:'/contacts'},
+          {icon:'💬',label:'Messages',path:'/messages'},
+          {icon:'👤',label:'Profile',path:'/profile'},
+        ].map(n => (
+          <div key={n.label} onClick={() => navigate(n.path)} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',cursor:'pointer',opacity:n.path==='/profile'?1:0.4}}>
+            <span style={{fontSize:'1.1rem'}}>{n.icon}</span>
+            <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'7px',letterSpacing:'0.1em',color:'rgba(255,255,255,0.5)'}}>{n.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
