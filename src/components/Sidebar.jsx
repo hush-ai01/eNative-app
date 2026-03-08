@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 const css = `
   .sidebar { width: 68px; background: #08090d; border-right: 1px solid #111116; display: flex; flex-direction: column; align-items: center; padding: 22px 0; gap: 4px; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
   .sidebar-logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #c084fc, #60d8fa); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; font-family: 'Rajdhani', sans-serif; font-weight: 800; font-size: 16px; color: #fff; cursor: pointer; }
-  .nav-btn { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.26); font-size: 17px; transition: all 0.18s; position: relative; }
+  .nav-btn { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.26); font-size: 18px; transition: all 0.18s; position: relative; }
   .nav-btn:hover { background: #0c0d12; color: rgba(255,255,255,0.52); }
   .nav-btn.active { background: rgba(192,132,252,0.1); color: #c084fc; }
   .nav-dot { position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: #ff5f7e; border: 1.5px solid #08090d; }
@@ -14,17 +14,22 @@ const css = `
 `;
 
 const NAV = [
-  { icon: "⊞", path: "/",          label: "Dashboard" },
-  { icon: "📞", path: "/dialler",   label: "Dialler"   },
-  { icon: "👥", path: "/contacts",  label: "Contacts"  },
-  { icon: "💬", path: "/messages",  label: "Messages", dot: true },
-  { icon: "🏅", path: "/badge",     label: "Badge"     },
-  { icon: "⚙", path: "/settings", label: "Settings" },
+  { icon: "🏠", path: "/",         label: "Home"     },
+  { icon: "📞", path: "/dialler",  label: "Dialler"  },
+  { icon: "👥", path: "/contacts", label: "Contacts" },
+  { icon: "💬", path: "/messages", label: "Messages", dot: true },
+  { icon: "🏅", path: "/badge",    label: "Badge"    },
+  { icon: "⚙",  path: "/settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <>
@@ -34,7 +39,7 @@ export default function Sidebar() {
         {NAV.map((n, i) => (
           <button
             key={i}
-            className={`nav-btn${location.pathname === n.path ? " active" : ""}`}
+            className={`nav-btn${isActive(n.path) ? " active" : ""}`}
             title={n.label}
             onClick={() => navigate(n.path)}
           >
