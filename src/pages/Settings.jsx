@@ -50,7 +50,6 @@ export default function Settings() {
   const { signOut } = useAuth()
   const navigate = useNavigate()
   const handleSignOut = async () => { await signOut(); navigate("/login") }
-  const navigate = useNavigate();
   const [toggles, setToggles] = useState({
     aiQuality: true,
     noiseCancel: true,
