@@ -1,4 +1,4 @@
-import { useState } from "react";
+          import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Sidebar from "../components/Sidebar";
@@ -112,7 +112,7 @@ export default function Settings() {
               <div className="setting-row">
                 <div className="s-icon" style={{ background: "rgba(110,231,183,0.1)" }}>📶</div>
                 <div className="s-info"><div className="s-label">Network</div><div className="s-desc">Connection region and routing</div></div>
-                <div className="s-right"><span className="s-val">Africa · Auto</span><span className="s-arrow">›</span></div>
+                <div className="s-right"><span className="s-val">Auto</span><span className="s-arrow">›</span></div>
               </div>
             </div>
           </div>
@@ -152,10 +152,10 @@ export default function Settings() {
           <div className="section">
             <div className="section-label">Danger Zone</div>
             <div className="card">
-              <div className="danger-row">
+              <div className="danger-row" onClick={handleSignOut}>
                 <div className="s-icon" style={{ background: "rgba(255,95,126,0.1)" }}>🚪</div>
                 <div>
-                  <div className="danger-label" onClick={handleSignOut} style={{cursor:"pointer"}}>Sign Out</div>
+                  <div className="danger-label">Sign Out</div>
                   <div className="danger-desc">Sign out of your eNative account</div>
                 </div>
               </div>
@@ -171,10 +171,10 @@ export default function Settings() {
 
           <div className="version-info">
             eNative · Version 0.1.0<br/>
-            Pan-African VoIP Network · Built with ❤️ for Africa
+            Born in Africa ❤️ Built for the world.
           </div>
         </div>
       </div>
     </>
   );
-}
+                  }
