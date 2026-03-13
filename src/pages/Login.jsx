@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms)
+    })
+  ])
+}
+
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,19 +22,29 @@ export default function Login() {
     setLoading(true)
     setError('')
     setMessage('')
+
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await withTimeout(
+          supabase.auth.signUp({ email, password }),
+          10000,
+          'Sign up timed out. Please try again.'
+        )
         if (error) throw error
         setMessage('Check your email to confirm your account!')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { error } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          10000,
+          'Login timed out. Please try again.'
+        )
         if (error) throw error
       }
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleGoogle = async () => {
