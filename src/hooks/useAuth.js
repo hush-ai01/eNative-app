@@ -7,31 +7,66 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .single()
-    setProfile(data)
-    return data
+      .maybeSingle()
+
+    if (error) {
+      console.error('Failed to fetch profile:', error)
+      setProfile(null)
+      return null
+    }
+
+    setProfile(data ?? null)
+    return data ?? null
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const u = session?.user ?? null
-      setUser(u)
-      if (u) await fetchProfile(u.id)
-      setLoading(false)
-    })
+    let mounted = true
+
+    const initialiseAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!mounted) return
+
+        const u = session?.user ?? null
+        setUser(u)
+
+        if (u) await fetchProfile(u.id)
+        else setProfile(null)
+      } catch (error) {
+        console.error('Failed to load auth session:', error)
+        if (!mounted) return
+        setUser(null)
+        setProfile(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    initialiseAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const u = session?.user ?? null
-      setUser(u)
-      if (u) await fetchProfile(u.id)
-      else { setProfile(null) }
+      try {
+        const u = session?.user ?? null
+        setUser(u)
+
+        if (u) await fetchProfile(u.id)
+        else setProfile(null)
+      } catch (error) {
+        console.error('Failed during auth state change:', error)
+        setProfile(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = async (email, password) => {
