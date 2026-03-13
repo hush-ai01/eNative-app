@@ -8,7 +8,27 @@ const ICE_SERVERS = {
   ]
 };
 
-export function useWebRTC(currentUser) {
+// Low bandwidth audio constraints
+const AUDIO_NORMAL = {
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    sampleRate: 48000
+  }
+};
+
+const AUDIO_LOW_BANDWIDTH = {
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    sampleRate: 16000,
+    channelCount: 1
+  }
+};
+
+export function useWebRTC(currentUser, lowBandwidth = false) {
   const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [callStatus, setCallStatus] = useState('idle');
@@ -17,9 +37,16 @@ export function useWebRTC(currentUser) {
   const callId = useRef(null);
 
   const getMedia = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const constraints = lowBandwidth ? AUDIO_LOW_BANDWIDTH : AUDIO_NORMAL;
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     localStream.current = stream;
     return stream;
+  };
+
+  const applyBandwidthLimit = (sdp) => {
+    if (!lowBandwidth) return sdp;
+    // Cap audio bitrate to 20kbps on low bandwidth
+    return sdp.replace(/a=mid:audio\r\n/g, 'a=mid:audio\r\nb=AS:20\r\n');
   };
 
   const createPeerConnection = (onTrack) => {
@@ -27,6 +54,43 @@ export function useWebRTC(currentUser) {
     if (localStream.current) {
       localStream.current.getTracks().forEach(t => conn.addTrack(t, localStream.current));
     }
+
+    // VAD — pause/resume audio track based on silence
+    if (lowBandwidth && localStream.current) {
+      const audioTrack = localStream.current.getAudioTracks()[0];
+      if (audioTrack) {
+        const audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(localStream.current);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        let silenceTimer = null;
+
+        const checkVoiceActivity = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+          if (avg < 5) {
+            // Silence — disable track after 300ms
+            if (!silenceTimer) {
+              silenceTimer = setTimeout(() => {
+                audioTrack.enabled = false;
+              }, 300);
+            }
+          } else {
+            // Voice detected — re-enable immediately
+            if (silenceTimer) {
+              clearTimeout(silenceTimer);
+              silenceTimer = null;
+            }
+            audioTrack.enabled = true;
+          }
+          requestAnimationFrame(checkVoiceActivity);
+        };
+        checkVoiceActivity();
+      }
+    }
+
     conn.ontrack = (e) => onTrack && onTrack(e.streams[0]);
     return conn;
   };
@@ -58,21 +122,22 @@ export function useWebRTC(currentUser) {
       pc.current = createPeerConnection(onRemoteStream);
 
       const offer = await pc.current.createOffer();
-      await pc.current.setLocalDescription(offer);
+      const optimisedSdp = applyBandwidthLimit(offer.sdp);
+      const optimisedOffer = { ...offer, sdp: optimisedSdp };
+      await pc.current.setLocalDescription(optimisedOffer);
 
       const { data } = await supabase.from('calls').insert({
         caller_id: currentUser.id,
         callee_id: calleeId,
         caller_enumber: currentUser.enumber,
         callee_enumber: calleeEnumber,
-        offer: offer,
+        offer: optimisedOffer,
         status: 'pending'
       }).select().single();
 
       callId.current = data.id;
       setActiveCall(data);
 
-      // Send ICE candidates
       pc.current.onicecandidate = async (e) => {
         if (e.candidate) {
           await supabase.from('ice_candidates').insert({
@@ -83,7 +148,6 @@ export function useWebRTC(currentUser) {
         }
       };
 
-      // Wait for answer
       const answerChannel = supabase
         .channel(`call-answer-${data.id}`)
         .on('postgres_changes', {
@@ -113,10 +177,12 @@ export function useWebRTC(currentUser) {
 
       await pc.current.setRemoteDescription(call.offer);
       const answer = await pc.current.createAnswer();
-      await pc.current.setLocalDescription(answer);
+      const optimisedSdp = applyBandwidthLimit(answer.sdp);
+      const optimisedAnswer = { ...answer, sdp: optimisedSdp };
+      await pc.current.setLocalDescription(optimisedAnswer);
 
       await supabase.from('calls').update({
-        answer: answer,
+        answer: optimisedAnswer,
         status: 'active'
       }).eq('id', call.id);
 
