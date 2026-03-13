@@ -69,10 +69,8 @@ export default function ProfileSetup() {
           user_id: user.id,
           full_name: fullName.trim(),
           country,
-          enumber,
-          updated_at: new Date().toISOString()
+          enumber
         }, { onConflict: 'user_id' })
-
       if (err) throw err
       await refreshProfile()
       navigate('/dashboard')
