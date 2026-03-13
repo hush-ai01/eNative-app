@@ -237,7 +237,6 @@ export default function Landing() {
             <div className="nav-right">
               <a href="#features" className="nav-link">FEATURES</a>
               <a href="#badges" className="nav-link">BADGES</a>
-              <a href="https://e-native-app.vercel.app" className="btn-primary">OPEN APP →</a>
             </div>
           </nav>
 
@@ -254,8 +253,7 @@ export default function Landing() {
               eNative gives you a permanent, verified digital phone identity — an eNumber that never gets recycled, never requires a SIM, and works across every border on the planet.
             </p>
             <div className="hero-ctas">
-              <a href="https://e-native-app.vercel.app" className="btn-primary">CLAIM YOUR eNUMBER →</a>
-              <a href="#waitlist" className="btn-secondary">JOIN WAITLIST</a>
+              <a href="#waitlist" className="btn-primary">CLAIM YOUR eNUMBER →</a>
             </div>
             <div className="hero-stats">
               <div>
@@ -422,4 +420,4 @@ export default function Landing() {
       </div>
     </>
   )
-              }
+}
