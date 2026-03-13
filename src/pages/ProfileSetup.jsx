@@ -48,7 +48,7 @@ function generateENumber() {
 
 export default function ProfileSetup() {
   const navigate = useNavigate()
-  const { user, refreshProfile } = useAuth()
+  const { user, refreshProfile, loading: authLoading } = useAuth()
   const [fullName, setFullName] = useState('')
   const [country, setCountry] = useState('')
   const [loading, setLoading] = useState(false)
@@ -56,6 +56,7 @@ export default function ProfileSetup() {
   const [enumber] = useState(generateENumber())
 
   const handleClaim = async () => {
+    if (!user?.id) return setError('Please sign in to claim your eNumber')
     if (!fullName.trim()) return setError('Please enter your full name')
     if (!country) return setError('Please select your country')
     setLoading(true)
@@ -64,22 +65,33 @@ export default function ProfileSetup() {
     try {
       const { error: err } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
           full_name: fullName.trim(),
           country,
           enumber,
           updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
+        }, { onConflict: 'user_id' })
 
       if (err) throw err
       await refreshProfile()
-      navigate('/')
+      navigate('/dashboard')
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="setup-wrap">
+        <style>{css}</style>
+        <div style={{ fontFamily: 'Share Tech Mono, monospace', fontSize: 11, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.26)' }}>
+          CONNECTING...
+        </div>
+      </div>
+    )
   }
 
   return (

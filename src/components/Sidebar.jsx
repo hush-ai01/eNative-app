@@ -14,7 +14,7 @@ const css = `
 `;
 
 const NAV = [
-  { icon: "🏠", path: "/",         label: "Home"     },
+  { icon: "🏠", path: "/dashboard", label: "Home"     },
   { icon: "📞", path: "/dialler",  label: "Dialler"  },
   { icon: "👥", path: "/contacts", label: "Contacts" },
   { icon: "💬", path: "/messages", label: "Messages", dot: true },
@@ -27,15 +27,14 @@ export default function Sidebar() {
   const location = useLocation();
 
   const isActive = (path) => {
-    if (path === "/") return location.pathname === "/";
-    return location.pathname.startsWith(path);
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
   return (
     <>
       <style>{css}</style>
       <div className="sidebar">
-        <div className="sidebar-logo" onClick={() => navigate("/")}>en</div>
+        <div className="sidebar-logo" onClick={() => navigate("/dashboard")}>en</div>
         {NAV.map((n, i) => (
           <button
             key={i}

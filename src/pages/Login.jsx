@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
@@ -9,18 +11,43 @@ export default function Login() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  const routeAuthenticatedUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('enumber')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      throw profileError
+    }
+
+    navigate(profile?.enumber ? '/dashboard' : '/setup')
+  }
+
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
     setMessage('')
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
-        setMessage('Check your email to confirm your account!')
+        if (data.session) {
+          await routeAuthenticatedUser()
+        } else {
+          setMessage('Check your email to confirm your account!')
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        await routeAuthenticatedUser()
       }
     } catch (err) {
       setError(err.message)
