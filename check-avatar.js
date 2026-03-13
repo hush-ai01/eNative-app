@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
-)
+import { supabase } from './src/lib/supabase.js'
 
 const { data: buckets } = await supabase.storage.listBuckets()
 console.log('📦 BUCKETS:', JSON.stringify(buckets, null, 2))
