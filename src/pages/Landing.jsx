@@ -224,12 +224,14 @@ const handleWaitlist = async (e) => {
       alert('Something went wrong, please try again.')
       console.error(error)
     } else {
-      alert(`You're on the list! We'll be in touch at ${email}`)
+      await supabase.functions.invoke('send-waitlist-email', {
+        body: { email }
+      })
+      alert(`You're on the list! Check your inbox at ${email}`)
       input.value = ''
     }
   }
 }
-
   return (
     <>
       <style>{css}</style>
