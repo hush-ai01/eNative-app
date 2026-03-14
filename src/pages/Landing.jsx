@@ -224,7 +224,7 @@ const handleWaitlist = async (e) => {
       alert('Something went wrong, please try again.')
       console.error(error)
     } else {
-      await supabase.functions.invoke('send-waitlist-email', {
+      await supabase.functions.invoke('smart-api'{
         body: { email }
       })
       alert(`You're on the list! Check your inbox at ${email}`)
