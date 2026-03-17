@@ -98,7 +98,7 @@ export default function ProfileSetup() {
           country,
           enumber
         }, { onConflict: 'user_id' })
-      if (err) throw er
+      if (err) throw err
       navigate('/dashboard')
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.')
